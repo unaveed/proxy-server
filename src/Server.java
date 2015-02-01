@@ -2,6 +2,7 @@ import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URLEncoder;
 
 public class Server
 {
@@ -46,18 +47,31 @@ public class Server
 
                     try
                     {
-                        InetAddress address = InetAddress.getByName("www.cs.utah.edu");
                         //TODO: Port 80 needs to not be hard coded
-                        Socket getRequest = new Socket("www.cs.utah.edu/~kobus/simple.html", 80);
-                        BufferedReader response = new BufferedReader(new InputStreamReader(getRequest.getInputStream()));
+                        InetAddress address = InetAddress.getByName("www.cs.utah.edu");
+                        Socket getRequest = new Socket(address, 80);
 
+                        // Send header information
+                        BufferedWriter writer = new BufferedWriter(
+                                new OutputStreamWriter(getRequest.getOutputStream(), "UTF8"));
+                        writer.write("GET /~kobus/simple.html HTTP/1.0rn");
+                        writer.write("Content-Length: " + 2 + "\r\n");
+                        writer.write("Content-Type: application/x-www-form-urlencoded\r\n");
+                        writer.write("\r\n");
+
+                        writer.flush();
+
+                        //Get Response
+                        BufferedReader response = new BufferedReader(new InputStreamReader(getRequest.getInputStream()));
                         String line;
+
                         while((line = response.readLine()) != null)
                         {
-                            printStream.println(line);
+                            System.out.println(line);
                         }
+
+                        writer.close();
                         response.close();
-                        getRequest.close();
                     }
                     catch (Exception e)
                     {
