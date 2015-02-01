@@ -2,23 +2,33 @@ import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.URLEncoder;
+import java.net.URI;
 
 public class Server
 {
-    public static void main(String[] args)
-    {
-        ServerSocket proxy = null;
-        String message;
-        BufferedReader reader;
-        PrintStream printStream;
-        Socket socket;
-        int port = 2000;
+    ServerSocket mProxy;
+    String mMessage;
+    BufferedReader mReader;
+    PrintStream mPrintStream;
+    Socket mSocket;
+    int mPort;
 
+    public Server()
+    {
+        mProxy = null;
+        mPort = 2000;
+    }
+    public Server(int port)
+    {
+        mProxy = null;
+        mPort = port;
+    }
+
+    public void initialize()
+    {
         try
         {
-            // Start a new socket at the specified port
-            proxy = new ServerSocket(port);
+            mProxy = new ServerSocket(mPort);
         }
         catch(Exception e)
         {
@@ -27,76 +37,111 @@ public class Server
 
         try
         {
-            socket = proxy.accept();
-            reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            printStream = new PrintStream(socket.getOutputStream());
-            String parrot = "I'm a parrot: ";
+            mSocket = mProxy.accept();
+            mReader = new BufferedReader(new InputStreamReader(mSocket.getInputStream()));
+            mPrintStream = new PrintStream(mSocket.getOutputStream());
 
             while(true)
             {
-                message = reader.readLine();
-                String[] contents = message.split(" ");
+                mMessage = mReader.readLine();
+                String[] messageContents = mMessage.split(" ");
 
-                if(contents[0].equals("GET"))
+                if(messageContents[0].equals("GET"))
                 {
-                    printStream.println("Valid command");
-                    //TODO: This needs error checking on the url
-                    String hostname = contents[1];
+                    URI uri = new URI(messageContents[1]);
+                    String host = uri.getHost();
 
-                    //TODO: Need to get the last part of the GET request
-
-                    try
+                    if(host != null)
                     {
-                        //TODO: Port 80 needs to not be hard coded
-                        InetAddress address = InetAddress.getByName("www.cs.utah.edu");
-                        Socket getRequest = new Socket(address, 80);
-
-                        // Send header information
-                        BufferedWriter writer = new BufferedWriter(
-                                new OutputStreamWriter(getRequest.getOutputStream(), "UTF8"));
-                        writer.write("GET /~kobus/simple.html HTTP/1.0rn");
-                        writer.write("Content-Length: " + 2 + "\r\n");
-                        writer.write("Content-Type: application/x-www-form-urlencoded\r\n");
-                        writer.write("\r\n");
-
-                        writer.flush();
-
-                        //Get Response
-                        BufferedReader response = new BufferedReader(new InputStreamReader(getRequest.getInputStream()));
-                        String line;
-
-                        while((line = response.readLine()) != null)
-                        {
-                            System.out.println(line);
-                        }
-
-                        writer.close();
-                        response.close();
+                        handleGetRequestTypeOne(messageContents, uri);
                     }
-                    catch (Exception e)
+                    else
                     {
-                        e.printStackTrace();
+                        handleGetRequestTypeTwo(messageContents, mReader.readLine().split(" ")[1]);
                     }
                 }
-                else if(contents[0].equals("quit"))
+                else if(messageContents[0].equals("quit"))
                 {
-                    printStream.println("Closing server...");
+                    mPrintStream.println("Closing server...");
 
-                    reader.close();
-                    printStream.close();
-                    socket.close();
+                    mReader.close();
+                    mPrintStream.close();
+                    mSocket.close();
 
                     return;
                 }
                 else
                 {
-                    printStream.println(parrot + message);
+                    mPrintStream.println("Invalid message format");
                 }
             }
         }
-        catch (IOException e)
+        catch (Exception e)
         {
             e.printStackTrace();
         }
+    }
+
+    private void handleGetRequestTypeOne(String[] messageContents, URI uri)
+    {
+        //TODO: Delete this
+        mPrintStream.println("Valid command");
+        String hostname = "www." + uri.getHost();
+        String path = uri.getPath();
+        String flag = messageContents[2];
+        String end = "\r\n";
+
+        sendGetRequest(hostname, path, flag, end);
+    }
+
+    private void handleGetRequestTypeTwo(String[] messageContents, String hostname)
+    {
+        String path = messageContents[1];
+        String flag = messageContents[2];
+        String end = "\r\n";
+
+        sendGetRequest(hostname, path, flag, end);
+    }
+
+    private void sendGetRequest(String hostname, String path, String flag, String end)
+    {
+        try
+        {
+            //TODO: Port 80 needs to not be hard coded
+            InetAddress address = InetAddress.getByName(hostname);
+            Socket getRequest = new Socket(address, 80);
+
+            // Send header information
+            BufferedWriter writer = new BufferedWriter(
+                    new OutputStreamWriter(getRequest.getOutputStream(), "UTF8"));
+            writer.write("GET" + path + flag + end);
+            writer.write("Content-Length: " + 2 + end);
+            writer.write("Content-Type: application/x-www-form-urlencoded" + end);
+            writer.write(end);
+
+            writer.flush();
+
+            //Get Response
+            BufferedReader response = new BufferedReader(new InputStreamReader(getRequest.getInputStream()));
+            String line;
+
+            while((line = response.readLine()) != null)
+            {
+                mPrintStream.println(line);
+            }
+
+            writer.close();
+            response.close();
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    public static void main(String[] args)
+    {
+        Server server = new Server();
+        server.initialize();
     }
 }
