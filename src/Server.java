@@ -6,6 +6,7 @@ import java.net.URI;
 
 public class Server
 {
+    final String END = "\r\n";
     ServerSocket mProxy;
     String mMessage;
     BufferedReader mReader;
@@ -90,21 +91,19 @@ public class Server
         String hostname = uri.getHost();
         String path = uri.getPath();
         String flag = messageContents[2];
-        String end = "\r\n";
 
-        sendGetRequest(hostname, path, flag, end);
+        sendGetRequest(hostname, path, flag);
     }
 
     private void handleGetRequestTypeTwo(String[] messageContents, String hostname)
     {
         String path = messageContents[1];
         String flag = messageContents[2];
-        String end = "\r\n";
 
-        sendGetRequest(hostname, path, flag, end);
+        sendGetRequest(hostname, path, flag);
     }
 
-    private void sendGetRequest(String hostname, String path, String flag, String end)
+    private void sendGetRequest(String hostname, String path, String flag)
     {
         try
         {
@@ -115,9 +114,9 @@ public class Server
             //Send header information
             BufferedWriter writer = new BufferedWriter(
                     new OutputStreamWriter(getRequest.getOutputStream(), "UTF8"));
-            writer.write("GET " + path + " " + flag + end);
-            writer.write("Content-Type: application/x-www-form-urlencoded" + end);
-            writer.write(end);
+            writer.write("GET " + path + " " + flag + END);
+            writer.write("Content-Type: application/x-www-form-urlencoded" + END);
+            writer.write(END);
 
             writer.flush();
 
@@ -141,7 +140,15 @@ public class Server
 
     public static void main(String[] args)
     {
-        Server server = new Server();
+        Server server;
+        if(args.length > 0)
+        {
+            int port = Integer.parseInt(args[0]);
+            server = new Server(port);
+        }
+        else
+            server = new Server();
+
         server.initialize();
     }
 }
