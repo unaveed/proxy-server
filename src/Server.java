@@ -16,7 +16,7 @@ public class Server
     public Server()
     {
         mProxy = null;
-        mPort = 2000;
+        mPort = 2112;
     }
     public Server(int port)
     {
@@ -24,6 +24,9 @@ public class Server
         mPort = port;
     }
 
+    /**
+     *  Start the proxy and open a socket to do GET requests.
+     */
     public void initialize()
     {
         try
@@ -84,9 +87,7 @@ public class Server
 
     private void handleGetRequestTypeOne(String[] messageContents, URI uri)
     {
-        //TODO: Delete this
-        mPrintStream.println("Valid command");
-        String hostname = "www." + uri.getHost();
+        String hostname = uri.getHost();
         String path = uri.getPath();
         String flag = messageContents[2];
         String end = "\r\n";
@@ -111,11 +112,10 @@ public class Server
             InetAddress address = InetAddress.getByName(hostname);
             Socket getRequest = new Socket(address, 80);
 
-            // Send header information
+            //Send header information
             BufferedWriter writer = new BufferedWriter(
                     new OutputStreamWriter(getRequest.getOutputStream(), "UTF8"));
-            writer.write("GET" + path + flag + end);
-            writer.write("Content-Length: " + 2 + end);
+            writer.write("GET " + path + " " + flag + end);
             writer.write("Content-Type: application/x-www-form-urlencoded" + end);
             writer.write(end);
 
