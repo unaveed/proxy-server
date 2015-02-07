@@ -1,32 +1,39 @@
-import java.io.*;
-import java.net.InetAddress;
+import java.io.PrintStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.URI;
 
+//TODO: Close the connection when it is HTTP/1.1 and be able to get localhost type addresses
+// TODO: Question for TA, does the port the proxy sends to need to be specified or just use 80?
 public class Server
 {
-    final String END = "\r\n";
-    ServerSocket mProxy;
-    String mMessage;
-    BufferedReader mReader;
-    PrintStream mPrintStream;
-    Socket mSocket;
-    int mPort;
+    private final String END = "\r\n";
+    private final int CLIENTS_LIMIT = 2;
+    private ServerSocket mProxy;
+    private Socket mSocket;
+    private int mPort;
+    private int mCurrentConnections;
+    private int mId;
 
     public Server()
     {
         mProxy = null;
+        mSocket = null;
         mPort = 2112;
+        mCurrentConnections = 0;
+        mId = 0;
     }
+
     public Server(int port)
     {
         mProxy = null;
+        mSocket = null;
         mPort = port;
+        mCurrentConnections = 0;
+        mId = 0;
     }
 
     /**
-     *  Start the proxy and open a socket to do GET requests.
+     * Start the proxy and open a socket to do GET requests.
      */
     public void initialize()
     {
@@ -34,114 +41,45 @@ public class Server
         {
             mProxy = new ServerSocket(mPort);
         }
-        catch(Exception e)
+        catch (Exception e)
         {
             e.printStackTrace();
         }
 
-        try
+        while(true)
         {
-            mSocket = mProxy.accept();
-            mReader = new BufferedReader(new InputStreamReader(mSocket.getInputStream()));
-            mPrintStream = new PrintStream(mSocket.getOutputStream());
-
-            while(true)
+            try
             {
-                mMessage = mReader.readLine();
-                String[] messageContents = mMessage.split(" ");
-
-                if(messageContents[0].equals("GET"))
+                mSocket = mProxy.accept();
+                mCurrentConnections++;
+                if(mCurrentConnections > CLIENTS_LIMIT)
                 {
-                    URI uri = new URI(messageContents[1]);
-                    String host = uri.getHost();
-
-                    if(host != null)
-                    {
-                        handleGetRequestTypeOne(messageContents, uri);
-                    }
-                    else
-                    {
-                        handleGetRequestTypeTwo(messageContents, mReader.readLine().split(" ")[1]);
-                    }
-                }
-                else if(messageContents[0].equals("quit"))
-                {
-                    mPrintStream.println("Closing server...");
-
-                    mReader.close();
-                    mPrintStream.close();
+                    PrintStream outMessage = new PrintStream(mSocket.getOutputStream());
+                    outMessage.println("The server cannot accept anymore clients, please try again later.");
+                    outMessage.close();
                     mSocket.close();
-
-                    return;
                 }
                 else
                 {
-                    mPrintStream.println("Invalid message format");
+                    ClientSocket client = new ClientSocket(this, mSocket, ++mId);
+                    Thread threadedClient = new Thread(client);
+                    threadedClient.start();
                 }
             }
-        }
-        catch (Exception e)
-        {
-            e.printStackTrace();
-        }
-    }
-
-    private void handleGetRequestTypeOne(String[] messageContents, URI uri)
-    {
-        String hostname = uri.getHost();
-        String path = uri.getPath();
-        String flag = messageContents[2];
-
-        sendGetRequest(hostname, path, flag);
-    }
-
-    private void handleGetRequestTypeTwo(String[] messageContents, String hostname)
-    {
-        String path = messageContents[1];
-        String flag = messageContents[2];
-
-        sendGetRequest(hostname, path, flag);
-    }
-
-    private void sendGetRequest(String hostname, String path, String flag)
-    {
-        try
-        {
-            //TODO: Port 80 needs to not be hard coded
-            InetAddress address = InetAddress.getByName(hostname);
-            Socket getRequest = new Socket(address, 80);
-
-            //Send header information
-            BufferedWriter writer = new BufferedWriter(
-                    new OutputStreamWriter(getRequest.getOutputStream(), "UTF8"));
-            writer.write("GET " + path + " " + flag + END);
-            writer.write("Content-Type: application/x-www-form-urlencoded" + END);
-            writer.write(END);
-
-            writer.flush();
-
-            //Get Response
-            BufferedReader response = new BufferedReader(new InputStreamReader(getRequest.getInputStream()));
-            String line;
-
-            while((line = response.readLine()) != null)
+            catch (Exception e)
             {
-                mPrintStream.println(line);
+                e.printStackTrace();
             }
+        }
 
-            writer.close();
-            response.close();
-        }
-        catch (Exception e)
-        {
-            e.printStackTrace();
-        }
     }
+
+
 
     public static void main(String[] args)
     {
         Server server;
-        if(args.length > 0)
+        if (args.length > 0)
         {
             int port = Integer.parseInt(args[0]);
             server = new Server(port);
@@ -150,5 +88,10 @@ public class Server
             server = new Server();
 
         server.initialize();
+    }
+
+    public void clientDisconnect()
+    {
+        mCurrentConnections--;
     }
 }
