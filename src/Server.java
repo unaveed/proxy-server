@@ -6,13 +6,12 @@ import java.net.Socket;
 // TODO: Question for TA, does the port the proxy sends to need to be specified or just use 80?
 public class Server
 {
-    private final String END = "\r\n";
-    private final int CLIENTS_LIMIT = 2;
-    private ServerSocket mProxy;
-    private Socket mSocket;
-    private int mPort;
-    private int mCurrentConnections;
-    private int mId;
+    private final int CLIENTS_LIMIT = 2;    // Set the number of concurrent clients
+    private ServerSocket mProxy;            // Starts a server socket
+    private Socket mSocket;                 // Opens a socket
+    private int mPort;                      // Port which the server accepts requests
+    private int mCurrentConnections;        // Number of concurrent connections
+    private int mId;                        // ID's for clients joining the server
 
     public Server()
     {
@@ -33,7 +32,7 @@ public class Server
     }
 
     /**
-     * Start the proxy and open a socket to do GET requests.
+     * Start the proxy and open sockets for multiple clients to connect to.
      */
     public void initialize()
     {
@@ -50,8 +49,12 @@ public class Server
         {
             try
             {
+                // Accept new clients by starting a thread for each incoming connection
                 mSocket = mProxy.accept();
                 mCurrentConnections++;
+
+                // Send message to client that the server is at it's limit for concurrent connections.
+                // TODO: Maybe have a more 'official' error message
                 if(mCurrentConnections > CLIENTS_LIMIT)
                 {
                     PrintStream outMessage = new PrintStream(mSocket.getOutputStream());
@@ -59,6 +62,7 @@ public class Server
                     outMessage.close();
                     mSocket.close();
                 }
+                // Start a separate thread for each incoming client
                 else
                 {
                     ClientSocket client = new ClientSocket(this, mSocket, ++mId);
@@ -79,6 +83,8 @@ public class Server
     public static void main(String[] args)
     {
         Server server;
+
+        // Check if a port number was provided and use that for the server.
         if (args.length > 0)
         {
             int port = Integer.parseInt(args[0]);
@@ -90,7 +96,10 @@ public class Server
         server.initialize();
     }
 
-    public void clientDisconnect()
+    /**
+     * Signal that a client has disconnected.
+     */
+    public void clientDisconnected()
     {
         mCurrentConnections--;
     }

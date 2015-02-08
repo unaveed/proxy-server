@@ -3,17 +3,14 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.URI;
 
-/**
- * Created by mantis on 2/7/15.
- */
 public class ClientSocket implements Runnable
 {
-    private final String END = "\r\n";
-    private BufferedReader mReader;
-    private PrintStream mPrintStream;
-    private Server mServer;
-    private Socket mClient;
-    private int mClientID;
+    private final String END = "\r\n";          // The end characters for a socket or server
+    private BufferedReader mReader;             // Reads input from the server
+    private PrintStream mPrintStream;           // Sends information to the client
+    private Server mServer;                     // Used to communicate with the server
+    private Socket mClient;                     // The socket for the client
+    private int mClientID;                      // The id of the client
 
     public ClientSocket(Server server, Socket socket, int clientID)
     {
@@ -41,17 +38,30 @@ public class ClientSocket implements Runnable
             while(true)
             {
                 String message = mReader.readLine();
+                System.out.println(message);
+
+                if(message == null)
+                    message = " ";
+
                 String[] messageContents = message.split(" ");
 
+                // Check that a GET command has been requested
                 if("GET".equals(messageContents[0]))
                 {
                     URI uri = new URI(messageContents[1]);
                     handleGetRequestTypeOne(messageContents, uri);
                 }
+                else if ("POST".equals(messageContents[0]) ||
+                         "PUT".equals(messageContents[0]) ||
+                         "DELETE".equals(messageContents[0]))
+                {
+                }
+                // If a quit signal has been sent, close socket connection
                 else if("quit".equals(messageContents[0]))
                 {
                     break;
                 }
+                // Display an error message if the command is not recognized
                 else
                 {
                     mPrintStream.println("Invalid command.");
@@ -59,7 +69,9 @@ public class ClientSocket implements Runnable
             }
 
             System.out.println("Connection to client " + mClientID + " is closed.");
-            mServer.clientDisconnect();
+
+            // Notify the client is disconnecting and close the socket.
+            mServer.clientDisconnected();
             mReader.close();
             mPrintStream.close();
             mClient.close();
@@ -71,6 +83,9 @@ public class ClientSocket implements Runnable
 
     }
 
+    /**
+     * Parses the valid message sent by the server.
+     */
     private void handleGetRequestTypeOne(String[] messageContents, URI uri)
     {
         String hostname = uri.getHost();
@@ -88,6 +103,9 @@ public class ClientSocket implements Runnable
         sendGetRequest(hostname, path, flag);
     }
 
+    /**
+     * Sends a request from the socket to the server based on the hostname and path
+     */
     private void sendGetRequest(String hostname, String path, String flag)
     {
         try
@@ -109,6 +127,7 @@ public class ClientSocket implements Runnable
             BufferedReader response = new BufferedReader(new InputStreamReader(getRequest.getInputStream()));
             String line;
 
+            // Print response to the client
             while ((line = response.readLine()) != null)
             {
                 mPrintStream.println(line);
