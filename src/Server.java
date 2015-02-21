@@ -6,7 +6,7 @@ import java.net.Socket;
 // TODO: Question for TA, does the port the proxy sends to need to be specified or just use 80?
 public class Server
 {
-    private final int CLIENTS_LIMIT = 2;    // Set the number of concurrent clients
+    private final int CLIENTS_LIMIT = 50;    // Set the number of concurrent clients
     private ServerSocket mProxy;            // Starts a server socket
     private Socket mSocket;                 // Opens a socket
     private int mPort;                      // Port which the server accepts requests
@@ -39,6 +39,7 @@ public class Server
         try
         {
             mProxy = new ServerSocket(mPort);
+            System.out.println("Server started on port " + mPort);
         }
         catch (Exception e)
         {
