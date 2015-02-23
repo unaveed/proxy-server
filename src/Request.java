@@ -16,6 +16,10 @@ public class Request
     boolean mValid;
     private final String CRLF = "\r\n";
 
+    public String getURL()
+    {
+        return mHostName + mPath;
+    }
 
     public String getFlag()
     {
@@ -91,6 +95,9 @@ public class Request
 
                 mValid = true;
                 populateHeaderData(headers);
+
+                String url = mHeaderMap.get("GET");
+                int index = url.indexOf(" ");
             }
             else
             {

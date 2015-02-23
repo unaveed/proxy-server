@@ -4,18 +4,19 @@ import java.net.Socket;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.UUID;
 
 public class ClientSocket implements Runnable
 {
-    private final String END = "\r\n";          // The end characters for a socket or server
+    private final String CRLF = "\r\n";          // The end characters for a socket or server
     private BufferedReader mReader;             // Reads input from the server
     private PrintStream mPrintStream;           // Sends information to the client
     private Server mServer;                     // Used to communicate with the server
     private Socket mClient;                     // The socket for the client
-    private int mClientID;                      // The id of the client
+    private UUID mClientID;                      // The id of the client
     private Request mRequest;
 
-    public ClientSocket(Server server, Socket socket, int clientID)
+    public ClientSocket(Server server, Socket socket, UUID clientID)
     {
         mServer = server;
         mClient = socket;
@@ -153,9 +154,9 @@ public class ClientSocket implements Runnable
             //Send header information
             BufferedWriter writer = new BufferedWriter(
                     new OutputStreamWriter(getRequest.getOutputStream(), "UTF8"));
-            writer.write("GET " + path + " " + flag + END);
-            writer.write("Content-Type: application/x-www-form-urlencoded" + END);
-            writer.write(END + END);
+            writer.write("GET " + path + " " + flag + CRLF);
+            writer.write("Content-Type: application/x-www-form-urlencoded" + CRLF);
+            writer.write(CRLF + CRLF);
 
             writer.flush();
 
@@ -182,35 +183,52 @@ public class ClientSocket implements Runnable
     {
         try
         {
-            InetAddress address = InetAddress.getByName(request.getHostName());
-            Socket requestSocket = new Socket(address, 80);
+            String pageContents = mServer.getCachedPage(request.getURL());
 
-            BufferedWriter writer = new BufferedWriter(
-                    new OutputStreamWriter(requestSocket.getOutputStream(), "UTF-8")
-            );
-
-            writer.write(request.generateRequestString());
-            writer.flush();
-
-            //Get Request
-            BufferedReader response = new BufferedReader(new InputStreamReader(requestSocket.getInputStream(), "UTF-8"));
-            String line;
-
-            // Print response to the client
-            while ((line = response.readLine()) != null)
+            if(pageContents != null)
             {
+                System.out.println("Pages contents: ");
+                System.out.println(pageContents);
+                mPrintStream.println(pageContents);
+            }
+            else
+            {
+                pageContents = "";
+                InetAddress address = InetAddress.getByName(request.getHostName());
+                Socket requestSocket = new Socket(address, 80);
+
+                if(request.getHeaderField("Accept").contains("image/"))
+                {
+                }
+
+                BufferedWriter writer = new BufferedWriter(
+                        new OutputStreamWriter(requestSocket.getOutputStream(), "UTF-8")
+                );
+
+                writer.write(request.generateRequestString());
+                writer.flush();
+
+                //Get Request
+                BufferedReader response = new BufferedReader(new InputStreamReader(requestSocket.getInputStream(), "UTF-8"));
+                String line;
+
+                // Print response to the client
+                while ((line = response.readLine()) != null)
+                {
 //                if(line.equals("\r\n"))
 //                    continue;
 
-                mPrintStream.println(line);
+                    mPrintStream.println(line);
+                    pageContents += line + CRLF;
+                    System.out.println("reader: " + line);
+                }
 
-                System.out.println("reader: " + line);
+                mServer.addPageToCache(request.getURL(), pageContents);
+                writer.close();
+                response.close();
+                requestSocket.close();
             }
-
-            writer.close();
-            response.close();
-            requestSocket.close();
-            mServer.clientDisconnected();
+            mServer.clientDisconnected(mClientID);
         }
         catch (Exception e)
         {

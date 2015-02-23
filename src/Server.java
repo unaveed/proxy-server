@@ -1,17 +1,26 @@
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Scanner;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 //TODO: Close the connection when it is HTTP/1.1 and be able to get localhost type addresses
 // TODO: Question for TA, does the port the proxy sends to need to be specified or just use 80?
-public class Server
+public class Server implements Runnable
 {
-    private final int CLIENTS_LIMIT = 2000; // Set the number of concurrent clients
-    private ServerSocket mProxy;            // Starts a server socket
-    private Socket mSocket;                 // Opens a socket
-    private int mPort;                      // Port which the server accepts requests
-    private int mCurrentConnections;        // Number of concurrent connections
-    private int mId;                        // ID's for clients joining the server
+    private final int CLIENTS_LIMIT = 2000;           // Set the number of concurrent clients
+    private ServerSocket mProxy;                      // Starts a server socket
+    private Socket mSocket;                           // Opens a socket
+    private int mPort;                                // Port which the server accepts requests
+    private int mCurrentConnections;                  // Number of concurrent connections
+    private Thread mThread;                           // The thread the server will run on
+    private ConcurrentHashMap<String, String> mCache; // Stores location of cache files
 
     public Server()
     {
@@ -19,7 +28,7 @@ public class Server
         mSocket = null;
         mPort = 2112;
         mCurrentConnections = 0;
-        mId = 0;
+        mCache = new ConcurrentHashMap<String, String>();
     }
 
     public Server(int port)
@@ -28,7 +37,7 @@ public class Server
         mSocket = null;
         mPort = port;
         mCurrentConnections = 0;
-        mId = 0;
+        mCache = new ConcurrentHashMap<String, String>();
     }
 
     /**
@@ -66,7 +75,7 @@ public class Server
                 // Start a separate thread for each incoming client
                 else
                 {
-                    ClientSocket client = new ClientSocket(this, mSocket, ++mId);
+                    ClientSocket client = new ClientSocket(this, mSocket, UUID.randomUUID());
                     Thread threadedClient = new Thread(client);
                     threadedClient.start();
                     System.out.println(mCurrentConnections + " client(s) currently connected.");
@@ -79,8 +88,6 @@ public class Server
         }
 
     }
-
-
 
     public static void main(String[] args)
     {
@@ -95,15 +102,99 @@ public class Server
         else
             server = new Server();
 
-        server.initialize();
+        Thread thread = new Thread(server);
+        thread.start();
+
+//        server.initialize();
+        Scanner scanner = new Scanner(System.in);
+        try
+        {
+            Thread.sleep(20 * 1000000);
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
     }
 
     /**
      * Signal that a client has disconnected.
      */
-    public void clientDisconnected()
+    public void clientDisconnected(UUID clientId)
     {
-        System.out.println("A client has disconnected. There are now " + mCurrentConnections + " clients connection.");
+        System.out.println(clientId + " has disconnected. There are now " + mCurrentConnections + " concurrent connections.");
         mCurrentConnections--;
+    }
+
+    /**
+     * Checks the cache for cached page, if it exists the Server will return
+     * the contents of the page, otherwise a null will be returned.
+     */
+    public String getCachedPage(String domain)
+    {
+        if(mCache.containsKey(domain))
+        {
+            try
+            {
+                byte[] bytesEncoded = Files.readAllBytes(Paths.get(mCache.get(domain)));
+                return new String(bytesEncoded, StandardCharsets.UTF_8);
+            }
+            catch (Exception e)
+            {
+                e.printStackTrace();
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Adds a page for caching or updates an already cached page.
+     */
+    public void addPageToCache(String domain, String page)
+    {
+        if(!mCache.containsKey(domain))
+        {
+            FileOutputStream outputStream = null;
+            try
+            {
+                String path = "files/file" + domain.hashCode();
+                File file = new File(path);
+                outputStream = new FileOutputStream(file);
+                byte[] content = page.getBytes(StandardCharsets.UTF_8);
+
+                outputStream.write(content);
+                outputStream.flush();
+
+                mCache.put(domain, path);
+            }
+            catch (Exception e)
+            {
+                e.printStackTrace();
+            }
+            finally
+            {
+                try
+                {
+                    if (outputStream != null)
+                        outputStream.close();
+                }
+                catch (Exception e)
+                {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    @Override
+    public void run()
+    {
+        synchronized (this)
+        {
+            mThread = Thread.currentThread();
+        }
+        initialize();
     }
 }
