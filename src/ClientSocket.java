@@ -186,28 +186,31 @@ public class ClientSocket implements Runnable
             Socket requestSocket = new Socket(address, 80);
 
             BufferedWriter writer = new BufferedWriter(
-                    new OutputStreamWriter(requestSocket.getOutputStream())
+                    new OutputStreamWriter(requestSocket.getOutputStream(), "UTF-8")
             );
-            writer.write(request.generateRequest());
+
+            writer.write(request.generateRequestString());
             writer.flush();
 
             //Get Request
-            BufferedReader response = new BufferedReader(new InputStreamReader(requestSocket.getInputStream(),"UTF8"));
+            BufferedReader response = new BufferedReader(new InputStreamReader(requestSocket.getInputStream(), "UTF-8"));
             String line;
 
             // Print response to the client
             while ((line = response.readLine()) != null)
             {
-                mPrintStream.println(line);
-//                System.out.println("reader: " + line);
-            }
+//                if(line.equals("\r\n"))
+//                    continue;
 
-            System.out.println("Request...");
-            System.out.println(request.generateRequest());
+                mPrintStream.println(line);
+
+                System.out.println("reader: " + line);
+            }
 
             writer.close();
             response.close();
             requestSocket.close();
+            mServer.clientDisconnected();
         }
         catch (Exception e)
         {

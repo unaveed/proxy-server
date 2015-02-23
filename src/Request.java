@@ -1,6 +1,8 @@
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 
 public class Request
@@ -10,6 +12,7 @@ public class Request
     private String mFlag;
     private String mErrorCode;
     private ArrayList<String> mHeaders;
+    private HashMap<String, String> mHeaderMap;
     boolean mValid;
     private final String CRLF = "\r\n";
 
@@ -44,6 +47,8 @@ public class Request
 
     public Request(List<String> headers)
     {
+        mHeaders = new ArrayList<String>();
+        mHeaderMap = new HashMap<String, String>();
         buildRequest(headers);
     }
 
@@ -85,20 +90,7 @@ public class Request
                 }
 
                 mValid = true;
-                mHeaders = new ArrayList<String>();
-                for(int i = 1; i < headers.size(); i++)
-                {
-                    if(headers.get(i).contains("Connection:"))
-                    {
-                        if(!headers.get(i).equals("Connection: close"))
-                        {
-                            mHeaders.add("Connection: close");
-                            continue;
-                        }
-                    }
-
-                    mHeaders.add(headers.get(i));
-                }
+                populateHeaderData(headers);
             }
             else
             {
@@ -113,17 +105,81 @@ public class Request
         }
     }
 
-    public String generateRequest()
+    private void populateHeaderData(List<String> headers)
+    {
+        String beginningHeader = "GET " + mPath + " " + mFlag + CRLF;
+
+        // Add the first line of the request
+        mHeaders.add(0, beginningHeader);
+        mHeaderMap.put("GET", beginningHeader.substring(4));
+
+        for(int i = 1; i < headers.size(); i++)
+        {
+            String line = headers.get(i);
+
+            // Replaces instances of connection: keep-alive with close
+            if(line.contains("Connection:") && !line.contains("Proxy"))
+            {
+                if(!line.equals("Connection: close"))
+                {
+                    mHeaders.add("Connection: close");
+                    mHeaderMap.put("Connection", "close");
+                    continue;
+                }
+            }
+            if(line.equals("Accept-Encoding: gzip, deflate"))
+            {
+                continue;
+            }
+
+            // Get indices of spaces so key/value pairs can be stored
+            int indexOfSpace = line.indexOf(" ");
+            String key = line.substring(0, indexOfSpace - 1);
+            String value = line.substring(indexOfSpace + 1);
+
+            mHeaderMap.put(key, value + CRLF);
+            mHeaders.add(headers.get(i) + CRLF);
+        }
+        System.out.println("Array list: " + Arrays.toString(mHeaders.toArray()));
+    }
+
+
+    public String getHeaderField(String key)
+    {
+        return mHeaderMap.get(key);
+    }
+
+    public String generateRequestString()
     {
         if(mValid)
         {
-            StringBuilder request = new StringBuilder();
-            request.append("GET ").append(mPath).append(" ").append(mFlag).append(CRLF);
-            for(int i = 0; i < mHeaders.size(); i++)
-                request.append(mHeaders.get(i)).append(CRLF);
+            StringBuilder builder = new StringBuilder();
+            for(String line : mHeaders)
+                builder.append(line);
 
-            request.append(CRLF);
-            return request.toString();
+            builder.append(CRLF);
+            return builder.toString();
+        }
+        return null;
+    }
+
+    public Byte[] generateRequest()
+    {
+        if(mValid)
+        {
+            ArrayList<Byte> byteList = new ArrayList<Byte>();
+            for(int i = 0; i < mHeaders.size(); i++)
+            {
+                int length = mHeaders.get(i).length();
+                for(int j = 0; j < length; j++)
+                    byteList.add((byte) mHeaders.get(i).charAt(j));
+            }
+
+            Byte[] byteArray = new Byte[byteList.size()];
+            for(int i = 0; i < byteList.size(); i++)
+                byteArray[i] = byteList.get(i);
+
+            return byteArray;
         }
 
         return null;

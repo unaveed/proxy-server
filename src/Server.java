@@ -6,7 +6,7 @@ import java.net.Socket;
 // TODO: Question for TA, does the port the proxy sends to need to be specified or just use 80?
 public class Server
 {
-    private final int CLIENTS_LIMIT = 50;    // Set the number of concurrent clients
+    private final int CLIENTS_LIMIT = 2000; // Set the number of concurrent clients
     private ServerSocket mProxy;            // Starts a server socket
     private Socket mSocket;                 // Opens a socket
     private int mPort;                      // Port which the server accepts requests
@@ -69,6 +69,7 @@ public class Server
                     ClientSocket client = new ClientSocket(this, mSocket, ++mId);
                     Thread threadedClient = new Thread(client);
                     threadedClient.start();
+                    System.out.println(mCurrentConnections + " client(s) currently connected.");
                 }
             }
             catch (Exception e)
@@ -102,6 +103,7 @@ public class Server
      */
     public void clientDisconnected()
     {
+        System.out.println("A client has disconnected. There are now " + mCurrentConnections + " clients connection.");
         mCurrentConnections--;
     }
 }
